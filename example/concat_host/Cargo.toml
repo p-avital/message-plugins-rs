@@ -9,4 +9,3 @@ edition = "2018"
 [dependencies]
 message_plugins = ""
 concat_types = {path = "../concat_types"}
-tokio = {version = "0.2", features = ["macros", "rt-threaded", "sync"]}
