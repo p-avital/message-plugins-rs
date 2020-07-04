@@ -2,9 +2,9 @@
 authors = ["Pierre Avital <pierre.avital@me.com>"]
 edition = "2018"
 name = "message_plugins"
-version = "0.1.1"
+version = "0.1.2"
 description = "A Message-Passing Oriented backbone for Rust plugins to Rust programs"
-keywords = ["map", "structures", "vec-map"]
+keywords = ["plugins", "tokio", "message"]
 license = "MPL-2.0"
 readme = "README.md"
 repository = "https://github.com/p-avital/message-plugins-rs"
