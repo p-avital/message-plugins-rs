@@ -32,13 +32,20 @@ impl ConcatPlugin {
     }
 }
 
+use std::any::Any;
 #[no_mangle]
-pub unsafe extern "C" fn plugin_constructor(plugin: *mut Box<dyn Plugin<ConcatCommand>>) {
-    insert_instance(
-        plugin,
-        Box::new(ConcatPlugin {
-            data: Default::default(),
-            times: Default::default(),
-        }),
-    );
+pub unsafe extern "C" fn plugin_constructor(plugin: *mut Box<dyn Plugin<ConcatCommand>>, args: Option<&dyn Any>) {
+    dbg!(&args);
+    if let Some(args) = args {
+        if let Some(vec) = args.downcast_ref::<Vec<&str>>() {
+            println!("Concat args: {:?}", vec);
+        }
+        insert_instance(
+            plugin,
+            Box::new(ConcatPlugin {
+                data: Default::default(),
+                times: Default::default(),
+            }),
+        );
+    }
 }

@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, sync::Arc};
+use std::{ffi::OsStr, sync::Arc, any::Any};
 
 #[cfg(not(feature = "tokio-host"))]
 pub use std_runtime::*;
@@ -186,6 +186,18 @@ pub trait Plugin<T>: Sync + Send + 'static {
     fn handle_message(&mut self, message: Message<T>) -> Option<u8>;
 }
 
+#[derive(Debug)]
+pub enum PluginConstructionError {
+    Loading(libloading::Error),
+    Construction,
+}
+
+impl From<libloading::Error> for PluginConstructionError {
+    fn from(e: libloading::Error) -> Self {
+        PluginConstructionError::Loading(e)
+    }
+}
+
 /// Loads a dynamic library at `path`, and calls the function called `constructor` in order to instanciate a `Plugin`.
 /// The constructor function is the only function where you need to dirty your hands with `extern "C"`. Its sole purpose is to insert your boxed plugin into a pointer.
 /// I suggest writing a constructor of the style:
@@ -199,11 +211,15 @@ pub trait Plugin<T>: Sync + Send + 'static {
 pub fn construct_plugin_with_constructor<T>(
     path: impl AsRef<OsStr>,
     constructor: impl AsRef<[u8]>,
-) -> Result<Box<dyn Plugin<T>>, libloading::Error> {
+    args: Option<&dyn Any>
+) -> Result<Box<dyn Plugin<T>>, PluginConstructionError> {
     let lib = libloading::Library::new(path)?;
-    let mut instance = std::mem::MaybeUninit::uninit();
+    let mut instance = std::mem::MaybeUninit::zeroed();
     Ok(unsafe {
-        lib.get::<FfiPluginInit<T>>(constructor.as_ref())?(instance.as_mut_ptr());
+        lib.get::<FfiPluginInit<T>>(constructor.as_ref())?(instance.as_mut_ptr(), args);
+        if ((*instance.as_ptr()).as_ref() as *const dyn Plugin<T>).is_null() {
+            return Err(PluginConstructionError::Construction);
+        }
         instance.assume_init()
     })
 }
@@ -220,8 +236,9 @@ pub fn construct_plugin_with_constructor<T>(
 /// ```
 pub fn construct_plugin<T>(
     path: impl AsRef<OsStr>,
-) -> Result<Box<dyn Plugin<T>>, libloading::Error> {
-    construct_plugin_with_constructor(path, b"plugin_constructor")
+    args: Option<&dyn Any>
+) -> Result<Box<dyn Plugin<T>>, PluginConstructionError> {
+    construct_plugin_with_constructor(path, b"plugin_constructor", args)
 }
 
 /// Inserts a plugin into an uninitialized pointer, preventing the drop on the uninitialized memory that would happen with a simple assignment
@@ -236,4 +253,4 @@ impl<T: 'static, B: AsMut<dyn Plugin<T>> + Sync + Send + 'static> Plugin<T> for 
     }
 }
 
-pub type FfiPluginInit<T> = unsafe extern "C" fn(*mut Box<dyn Plugin<T>>);
+pub type FfiPluginInit<T> = unsafe extern "C" fn(*mut Box<dyn Plugin<T>>, Option<&dyn Any>);

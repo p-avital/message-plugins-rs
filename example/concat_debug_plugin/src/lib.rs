@@ -16,7 +16,15 @@ impl Plugin<ConcatCommand> for DebugPlugin {
     }
 }
 
+
+use std::any::Any;
 #[no_mangle]
-pub unsafe extern "C" fn plugin_constructor(plugin: *mut Box<dyn Plugin<ConcatCommand>>) {
-    insert_instance(plugin, Box::new(DebugPlugin {}));
+pub unsafe extern "C" fn plugin_constructor(plugin: *mut Box<dyn Plugin<ConcatCommand>>, args: Option<&dyn Any>) {
+    dbg!(&args);
+    if let Some(args) = args {
+        if let Some(map) = args.downcast_ref::<std::collections::HashMap<&str, &str>>() {
+            println!("Debug args: {:?}", map);
+            insert_instance(plugin, Box::new(DebugPlugin {}));
+        }
+    }
 }
